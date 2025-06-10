@@ -98,8 +98,8 @@ class Client(
         )
     }
 
-    fun sendMessage(businessDocument: OutgoingBusinessDocument) {
-        buildClient(buildPostMessagesEndpoint())
+    fun sendMessage(businessDocument: OutgoingBusinessDocument,enhet:String? = null) {
+        buildClient(buildPostMessagesEndpoint(),enhet)
             .postMessage(
                 API_VERSION, sourceSystem, PostMessageRequest()
                     .contentType(CONTENT_TYPE)
@@ -108,8 +108,8 @@ class Client(
             )
     }
 
-    fun getMessages(receiverHerId: Int): List<Message> {
-        return buildClient(buildGetMessagesEndpoint())
+    fun getMessages(receiverHerId: Int,ehet: String?=null): List<Message> {
+        return buildClient(buildGetMessagesEndpoint(),ehet)
             .getMessages(
                 API_VERSION, sourceSystem, MessagesControllerApi.GetMessagesQueryParams()
                     .receiverHerIds(setOf(receiverHerId))
@@ -129,33 +129,33 @@ class Client(
 
     }
 
-    fun getMessage(id: UUID): MessageWithMetadata {
-        return buildClient(buildGetMessageByIdEndpoint(id))
+    fun getMessage(id: UUID,enhet: String?=null): MessageWithMetadata {
+        return buildClient(buildGetMessageByIdEndpoint(id),enhet)
             .getMessage(id, API_VERSION, sourceSystem)
             .toMessageInfoWithMetadata()
     }
 
-    fun getBusinessDocument(id: UUID): IncomingBusinessDocument {
-        return buildClient(buildGetBusinessDocumentEndpoint(id))
+    fun getBusinessDocument(id: UUID,enhet:String?=null): IncomingBusinessDocument {
+        return buildClient(buildGetBusinessDocumentEndpoint(id),enhet)
             .getBusinessDocument(id, API_VERSION, sourceSystem)
             .let {
                 BusinessDocumentDeserializer.deserializeMsgHead(String(Base64.getDecoder().decode(it.businessDocument)))
             }
     }
 
-    fun getApplicationReceipt(id: UUID): IncomingApplicationReceipt {
-        return buildClient(buildGetBusinessDocumentEndpoint(id))
+    fun getApplicationReceipt(id: UUID,enhet: String?=null): IncomingApplicationReceipt {
+        return buildClient(buildGetBusinessDocumentEndpoint(id),enhet)
             .getBusinessDocument(id, API_VERSION, sourceSystem)
             .let {
                 BusinessDocumentDeserializer.deserializeAppRec(String(Base64.getDecoder().decode(it.businessDocument)))
             }
     }
 
-    fun sendApplicationReceipt(receipt: OutgoingApplicationReceipt) {
+    fun sendApplicationReceipt(receipt: OutgoingApplicationReceipt,enhet: String?=null) {
         if (receipt.status == StatusForMottakAvMelding.OK && !receipt.errors.isNullOrEmpty()) throw IllegalArgumentException("Error messages are not allowed when status is OK")
         if (receipt.status != StatusForMottakAvMelding.OK && receipt.errors.isNullOrEmpty()) throw IllegalArgumentException("Must provide at least one error message if status is not OK")
 
-        buildClient(buildPostAppRecEndpoint(receipt.acknowledgedId, receipt.senderHerId))
+        buildClient(buildPostAppRecEndpoint(receipt.acknowledgedId, receipt.senderHerId),enhet)
             .postAppRec(
                 receipt.acknowledgedId, receipt.senderHerId, API_VERSION, sourceSystem, PostAppRecRequest()
                     .appRecStatus(receipt.status.toAppRecStatus())
@@ -178,8 +178,8 @@ class Client(
             .details(details)
     }
 
-    fun markMessageRead(id: UUID, receiverHerId: Int) {
-        buildClient(buildPutMessageReadEndpoint(id, receiverHerId))
+    fun markMessageRead(id: UUID, receiverHerId: Int,enhet:String?=null) {
+        buildClient(buildPutMessageReadEndpoint(id, receiverHerId),enhet)
             .markMessageAsRead(id, receiverHerId, API_VERSION, sourceSystem)
     }
 
@@ -198,11 +198,12 @@ class Client(
         isAppRec = isAppRec,
     )
 
-    private fun buildClient(endpoint: Endpoint) = Feign.builder()
+
+    private fun buildClient(endpoint: Endpoint, enhet:String?=null) = Feign.builder()
         .encoder(JacksonEncoder(mapper))
         .decoder(JacksonDecoder(mapper))
         .requestInterceptor {
-            httpHelper.addDpopAuthorizationHeader(endpoint) { name, value ->
+            httpHelper.addDpopAuthorizationHeader(endpoint,enhet) { name, value ->
                 it.header(name, value)
             }
         }
